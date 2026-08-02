@@ -3,19 +3,12 @@ name: Volksbad monitor
 
 on:
   schedule:
-    # Every 5 minutes (cron is in UTC). GitHub may delay scheduled runs a
-    # few minutes under load - fine for free pool slots. Once you learn the
-    # daily release time you can narrow this, e.g. "*/5 8-11 * * *" to only
-    # poll 08:00-11:59 UTC and save both server load and your Actions minutes.
     - cron: "*/5 * * * *"
-  workflow_dispatch: {}   # lets you trigger a test run manually from the Actions tab
+  workflow_dispatch: {}
 
 concurrency:
   group: volksbad-monitor
-  cancel-in-progress: false
-
-permissions:
-  contents: write   # needed so the run can commit state.json back to the repo
+  cancel-in-progress: true   # don't let overlapping runs race each other
 
 jobs:
   check:
@@ -30,6 +23,15 @@ jobs:
       - name: Install dependencies
         run: pip install requests beautifulsoup4
 
+      # Load the state saved by the previous run (if any) from the cache.
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: volksbad-state-${{ github.run_id }}
+          restore-keys: |
+            volksbad-state-
+
       - name: Run monitor
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
@@ -37,12 +39,10 @@ jobs:
           TARGET_DATES: ${{ vars.TARGET_DATES }}
         run: python monitor.py
 
-      - name: Persist state
-        run: |
-          if [[ -n "$(git status --porcelain state.json)" ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add state.json
-            git commit -m "update slot state"
-            git push
-          fi
+      # Save the updated state to the cache for the next run.
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: volksbad-state-${{ github.run_id }}
