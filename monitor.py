@@ -25,10 +25,8 @@ import datetime
 import requests
 from bs4 import BeautifulSoup
 
-BOOKING_URL = os.environ.get(
-    "BOOKING_URL",
-    "https://www.volksbuehne-berlin.de/produktionen/volksbad/",
-)
+BOOKING_URL = os.environ.get("BOOKING_URL", "").strip() or \
+    "https://www.volksbuehne-berlin.de/produktionen/volksbad/"
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC")  # e.g. https://ntfy.sh/your-secret-topic
 TARGET_DATES = [d.strip() for d in os.environ.get("TARGET_DATES", "").split(",") if d.strip()]
 STATE_FILE = pathlib.Path("state.json")
